@@ -1,16 +1,24 @@
 # React + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Este template fornece uma configuração mínima para executar uma aplicação React com Vite, incluindo HMR (Hot Module Replacement) e algumas regras do Oxlint.
 
-Currently, two official plugins are available:
+Atualmente, estão disponíveis dois plugins oficiais:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) utiliza [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) utiliza [SWC](https://swc.rs/)
 
 ## React Compiler
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+O React Compiler não está habilitado neste template devido ao impacto que pode causar no desempenho durante o desenvolvimento e o processo de build.
 
-## Expanding the Oxlint configuration
+Para habilitá-lo, consulte a documentação oficial:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+https://react.dev/learn/react-compiler/installation
+
+## Expandindo a configuração do Oxlint
+
+Caso esteja desenvolvendo uma aplicação para produção, é recomendado utilizar TypeScript com regras de lint que considerem informações de tipos.
+
+Consulte o template TypeScript do Vite para obter informações sobre como integrar TypeScript e as regras relacionadas do Oxlint:
+
+https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts
