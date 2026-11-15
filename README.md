@@ -8,7 +8,7 @@ Aplicação para cadastro e acompanhamento automático de encomendas, permitindo
 
 - Artur Alves Munhoz Assis
 - Daniela Gomes de Carvalho
-- Integrante 3
+- Felipe de Carvalho Ferraz
 - Integrante 4
 - Integrante 5
 - Integrante 6
