@@ -1,0 +1,18 @@
+{
+  "envios": [
+    {
+      "id": 1,
+      "codigoRastreio": "AM000000001BR",
+      "nomeDestinatario": "João Silva",
+      "status": "EM_TRANSITO",
+      "dataUltimaAtualizacao": "2026-11-12T14:30:00Z"
+    },
+    {
+      "id": 2,
+      "codigoRastreio": "AM000000002BR",
+      "nomeDestinatario": "Maria Oliveira",
+      "status": "ENTREGUE",
+      "dataUltimaAtualizacao": "2026-11-10T09:15:00Z"
+    }
+  ]
+}
