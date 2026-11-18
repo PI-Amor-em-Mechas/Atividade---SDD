@@ -1,4 +1,5 @@
 import EnvioTable from '../components/EnvioTable.jsx'
+import EnvioForm from '../components/EnvioForm.jsx'
 import { useEnvios } from '../hooks/useEnvios.js'
 import styles from './EnviosPage.module.css'
 
@@ -32,6 +33,8 @@ function EnviosPage() {
           {atualizando ? 'Atualizando…' : 'Atualizar'}
         </button>
       </header>
+
+      <EnvioForm onCadastrado={atualizar} />
 
       {erroAtualizacao && (
         <div className={styles.warning} role="status" aria-live="polite">
