@@ -26,16 +26,20 @@ function EnvioForm({ onCadastrado }) {
 
     if (!envio.codigoRastreio) {
       novosErros.codigoRastreio = 'Informe o código de rastreio.'
+    } else if (envio.codigoRastreio.length > 50) {
+      novosErros.codigoRastreio = 'Use até 50 caracteres no código de rastreio.'
     }
     if (!envio.nomeDestinatario) {
       novosErros.nomeDestinatario = 'Informe o nome do destinatário.'
+    } else if (envio.nomeDestinatario.length > 150) {
+      novosErros.nomeDestinatario = 'Use até 150 caracteres no nome do destinatário.'
     }
 
     setErros(novosErros)
     setFeedback(null)
 
     if (Object.keys(novosErros).length > 0) {
-      const campo = !envio.codigoRastreio ? 'codigoRastreio' : 'nomeDestinatario'
+      const campo = Object.keys(novosErros)[0]
       event.currentTarget.elements.namedItem(campo).focus()
       return
     }
@@ -46,12 +50,19 @@ function EnvioForm({ onCadastrado }) {
     try {
       await cadastrarEnvio(envio)
     } catch (error) {
+      if (error instanceof EnviosApiError && error.status === 400) {
+        const campos = {}
+        for (const campo of ['codigoRastreio', 'nomeDestinatario']) {
+          if (typeof error.campos?.[campo] === 'string') campos[campo] = error.campos[campo]
+        }
+        setErros(campos)
+      }
       setFeedback({
         tipo: 'erro',
         mensagem:
           error instanceof EnviosApiError && error.status === 409
             ? 'Código de rastreio já cadastrado.'
-            : 'Não foi possível cadastrar o envio.',
+            : error instanceof EnviosApiError ? error.message : 'Não foi possível cadastrar o envio.',
       })
       return
     } finally {

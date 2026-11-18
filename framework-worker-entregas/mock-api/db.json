@@ -4,15 +4,42 @@
       "id": 1,
       "codigoRastreio": "AM000000001BR",
       "nomeDestinatario": "João Silva",
-      "status": "EM_TRANSITO",
-      "dataUltimaAtualizacao": "2026-11-12T14:30:00Z"
+      "ultimoStatus": "AGUARDANDO",
+      "entregue": false,
+      "criadoEm": "2026-11-18T14:00:00",
+      "atualizadoEm": "2026-11-18T14:00:00",
+      "dataAtualizacao": "2026-11-18T14:00:00",
+      "historico": [
+        "AGUARDANDO"
+      ]
     },
     {
       "id": 2,
       "codigoRastreio": "AM000000002BR",
       "nomeDestinatario": "Maria Oliveira",
-      "status": "ENTREGUE",
-      "dataUltimaAtualizacao": "2026-11-10T09:15:00Z"
+      "ultimoStatus": "EM_TRANSITO",
+      "entregue": false,
+      "criadoEm": "2026-11-18T14:00:00",
+      "atualizadoEm": "2026-11-18T14:30:00",
+      "dataAtualizacao": "2026-11-18T14:30:00-03:00",
+      "historico": [
+        "AGUARDANDO",
+        "EM_TRANSITO|2026-11-18T14:30:00-03:00|Objeto em transferência"
+      ]
+    },
+    {
+      "id": 3,
+      "codigoRastreio": "AM000000003BR",
+      "nomeDestinatario": "Ana Lima",
+      "ultimoStatus": "ENTREGUE",
+      "entregue": true,
+      "criadoEm": "2026-11-18T14:00:00",
+      "atualizadoEm": "2026-11-18T16:00:00",
+      "dataAtualizacao": "2026-11-18T16:00:00",
+      "historico": [
+        "AGUARDANDO",
+        "ENTREGUE|2026-11-18T16:00:00-03:00|Entregue ao destinatário"
+      ]
     }
   ]
 }

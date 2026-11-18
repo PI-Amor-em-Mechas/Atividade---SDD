@@ -1,0 +1,5 @@
+/api-envios/target/
+.venv/
+*.pyc
+/framework-worker-entregas/test-results/
+/framework-worker-entregas/playwright-report/

@@ -1,14 +1,20 @@
 """Regra de negócio: consulta, compara e atualiza."""
 import logging
 from dataclasses import dataclass, field
+from hashlib import sha256
 
-from api_client import TrackingApiClient, TrackingError, TrackingNotFound
-from repository import Repository
+from api_client import TrackingApiClient, TrackingError, TrackingInvalidResponse, TrackingNotFound
+from repository import Repository, STATUS_ENTREGUE
 
 logger = logging.getLogger(__name__)
 
-STATUS_ENTREGUE = "ENTREGUE"
-
+# Vocabulário sintético do stub. A entrega exige correspondência exata.
+STATUS_STUB = {
+    "AGUARDANDO": "AGUARDANDO",
+    "EM_TRANSITO": "EM_TRANSITO",
+    "ENTREGUE": "ENTREGUE",
+    "ERRO": "ERRO",
+}
 
 @dataclass
 class CycleSummary:
@@ -33,26 +39,33 @@ class TrackingService:
 
         for enc in encomendas:
             try:
-                result = self.client.fetch(enc.codigo_rastreio)
+                result = self.client.fetch(enc.codigo_rastreio, envio_id=enc.id)
+                status = STATUS_STUB.get(result.status)
+                if status is None:
+                    identificador = sha256(result.status.encode("utf-8", "surrogatepass")).hexdigest()[:12]
+                    raise TrackingInvalidResponse(f"Status sem mapeamento (sha256={identificador})")
 
-                if result.status == enc.ultimo_status:
+                if status == enc.ultimo_status:
                     summary.sem_mudanca += 1
-                    logger.debug("%s sem mudança (%s)", enc.codigo_rastreio, result.status)
+                    logger.debug("envio_id=%s status=%s sem mudança", enc.id, status)
                     continue
 
-                entregue = result.status == STATUS_ENTREGUE
-                self.repo.atualizar_status(enc.id, result.status, result.descricao, entregue)
+                if not self.repo.atualizar_status(enc, status, result.descricao):
+                    summary.sem_mudanca += 1
+                    logger.debug("envio_id=%s transição ignorada por mudança concorrente", enc.id)
+                    continue
+
                 summary.atualizadas += 1
-                if entregue:
+                if status == STATUS_ENTREGUE:
                     summary.entregues += 1
-                logger.info("%s: %s -> %s", enc.codigo_rastreio, enc.ultimo_status, result.status)
+                logger.info("envio_id=%s transição aplicada status=%s", enc.id, status)
 
             except TrackingNotFound as exc:
-                self._registrar_erro(summary, enc.codigo_rastreio, exc, warn=True)
+                self._registrar_erro(summary, enc.id, str(exc), warn=True)
             except TrackingError as exc:
-                self._registrar_erro(summary, enc.codigo_rastreio, exc)
+                self._registrar_erro(summary, enc.id, str(exc))
             except Exception as exc:  # falha ao atualizar ou erro inesperado
-                self._registrar_erro(summary, enc.codigo_rastreio, exc, trace=True)
+                self._registrar_erro(summary, enc.id, type(exc).__name__, trace=True)
 
         logger.info(
             "Ciclo finalizado: %d atualizadas, %d sem mudança, %d entregues, %d erros",
@@ -61,8 +74,8 @@ class TrackingService:
         return summary
 
     @staticmethod
-    def _registrar_erro(summary, codigo, exc, warn=False, trace=False):
+    def _registrar_erro(summary, envio_id, motivo, warn=False, trace=False):
         summary.erros += 1
-        summary.erros_detalhe.append(f"{codigo}: {exc}")
+        summary.erros_detalhe.append(f"envio_id={envio_id}: {motivo}")
         log = logger.warning if warn else logger.error
-        log("Erro na encomenda %s: %s", codigo, exc, exc_info=trace)
+        log("envio_id=%s estado anterior preservado: %s", envio_id, motivo, exc_info=trace)

@@ -40,8 +40,10 @@ public class EnvioService {
         Envio e = new Envio();
         e.setCodigoRastreio(codigo);
         e.setNomeDestinatario(req.nomeDestinatario().trim());
-        e.setUltimoStatus(req.ultimoStatus());
-        e.setEntregue(Boolean.TRUE.equals(req.entregue()));
+        String status = req.ultimoStatus() == null || req.ultimoStatus().isBlank()
+                ? "AGUARDANDO" : req.ultimoStatus();
+        e.setUltimoStatus(status);
+        e.setEntregue("ENTREGUE".equals(status));
         e.setDataAtualizacao(LocalDateTime.now());
         List<String> hist = req.historico() != null ? new ArrayList<>(req.historico()) : new ArrayList<>();
         if (hist.isEmpty() && req.ultimoStatus() != null && !req.ultimoStatus().isBlank()) {

@@ -1,65 +1,19 @@
-# Data Model: Visualização de Encomendas e Status
+# Modelo de apresentação de envios
 
-## Entidade: Encomenda
-
-| Campo | Tipo | Obrigatório | Regra |
-|---|---|---|---|
-| `codigoRastreio` | string | sim | Identificador exibido na primeira coluna; usado na identidade da linha; vazio → "—" |
-| `nomeDestinatario` | string | sim | Exibido na segunda coluna; vazio → "—" |
-| `status` | enum | sim | `AGUARDANDO`, `EM_TRANSITO`, `ENTREGUE`, `ERRO`; desconhecido → badge neutro "Desconhecido" |
-| `dataUltimaAtualizacao` | string ISO 8601 | sim | Convertida para data/hora local em pt-BR; inválida/ausente → "—" |
-
-### Forma normalizada usada pela interface
-
-```text
-{
-  id: string,
-  codigoRastreio: string,
-  nomeDestinatario: string,
-  status: string,
-  dataUltimaAtualizacao: string | null
-}
-```
-
-### Regras de normalização
-
-1. A resposta da fonte MUST ser um array; caso contrário, tratar como erro de contrato.
-2. Itens que não sejam objetos são descartados.
-3. Strings recebem `trim`.
-4. O status é convertido para maiúsculas.
-5. O `id` é derivado do código de rastreio, com fallback por índice para garantir chave única.
-6. Nenhuma encomenda é mutada; a tela é somente leitura.
-
-## Enum: Status
-
-| Valor | Rótulo | Variante visual |
+| Campo | Tipo | Apresentação |
 |---|---|---|
-| `AGUARDANDO` | Aguardando | âmbar/neutro |
-| `EM_TRANSITO` | Em trânsito | azul |
-| `ENTREGUE` | Entregue | verde |
-| `ERRO` | Erro | vermelho |
-| desconhecido | Desconhecido | neutro/cinza |
+| `id` | inteiro | Identidade e chave React da linha. |
+| `codigoRastreio`, `nomeDestinatario` | string | Código e destinatário. São os únicos campos enviados pelo formulário. |
+| `ultimoStatus` | string ou null | Badge com `AGUARDANDO`, `EM_TRANSITO`, `ENTREGUE`, `ERRO` ou fallback. |
+| `entregue` | boolean | Flag que permite detectar divergência com o status. |
+| `dataAtualizacao` | ISO ou null | Última mudança logística. |
+| `atualizadoEm`, `criadoEm` | ISO ou null | Datas de auditoria. A primeira é fallback visual quando a data logística está ausente. |
+| `historico` | array de strings | Eventos em ordem, exibidos a partir dos dados da listagem. Ausência ou null vira `[]`. |
 
-## Máquina de estados da interface
+Datas sem offset preservam a hora local de São Paulo. Datas com offset são
+exibidas em `America/Sao_Paulo`. Eventos podem ser simples ou seguir
+`STATUS|DATA_ISO|DESCRICAO`. A descrição restaura `%25` e `%7C` em uma
+única passada de decodificação.
 
-| Estado | Condição | Comportamento |
-|---|---|---|
-| `loading` | primeira carga em andamento | Indicador de carregamento com anúncio acessível |
-| `error` | primeira carga falhou e nada foi carregado | Mensagem + botão "Tentar novamente" |
-| `empty` | carga concluída sem registros | Mensagem de lista vazia + ação de atualizar |
-| `list` | há registros carregados | Tabela de encomendas |
-| `refreshing` | já carregou e nova busca está em andamento | Lista permanece visível; botão desabilitado e indicador discreto |
-| `stale-error` | atualização falhou após carga bem-sucedida | Lista preservada + aviso não bloqueante |
-
-## Transições
-
-```text
-loading → list      (sucesso com registros)
-loading → empty     (sucesso sem registros)
-loading → error     (falha inicial)
-error   → loading   (nova tentativa)
-empty   → list      (atualização traz registros)
-list    → list      (atualização bem-sucedida)
-list    → stale-error (falha em atualização)
-stale-error → list  (atualização seguinte bem-sucedida)
-```
+A interface preserva a última lista válida em falhas transitórias. As
+consultas periódicas acontecem a cada 30 segundos enquanto a página estiver visível.
