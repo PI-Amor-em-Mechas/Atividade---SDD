@@ -15,28 +15,51 @@ Aplicação para cadastro e acompanhamento automático de encomendas, permitindo
 
 ## Framework utilizado
 
-O projeto utiliza o SpecKit como framework de Specification-Driven Development (SDD).
-
-O SpecKit foi escolhido por permitir estruturar o desenvolvimento a partir da especificação, passando pelo planejamento, definição das tarefas e implementação.
+O projeto usa o SpecKit para organizar a especificação, o planejamento, as tarefas e a implementação seguindo Specification-Driven Development (SDD). [Especificação da interface de encomendas](framework-worker-entregas/specs/001-visualizacao-encomendas/spec.md)
 
 ## Tecnologias
 
-- React
-- Vite
-- Spring Boot
-- MySQL/MariaDB
-- Python
-- JSON Server
-- SpecKit
+- O frontend em React e Vite cadastra encomendas por código de rastreio e nome do destinatário e exibe a lista, o status e o histórico de cada envio. [Documentação do frontend](framework-worker-entregas/README.md)
+- A API Spring Boot cadastra e lista os envios em `/api/envios`, permite consultar um envio por ID e persiste os dados no MySQL ou MariaDB. [Documentação da API](api-envios/README.md)
+- O Worker Python consulta o serviço de rastreamento em ciclos e grava as mudanças de status e os eventos no mesmo banco usado pela API. [Documentação do Worker](Worker%20Python%20de%20rastreamento/README.md)
+- O mock com JSON Server fornece cenários locais para testar a leitura da listagem no frontend. [Validação do mock](framework-worker-entregas/mock-api/VALIDACAO.md)
+
+## Histórico do projeto
+
+| Data | Principais entregas |
+|---|---|
+| 19/11/2026 | Assistente de configuração do banco e criação e leitura do `.env` da aplicação (`c956611`, `aa112ba`). Configuração automática do banco com uma conta administrativa e inclusão do Maven Wrapper (`56ecb1c`, `3678561`). |
+| 18/11/2026 | Integração do cadastro, da API de envios e do mock ao projeto. Frontend, Spring e Worker passam a operar juntos no fluxo de rastreamento (`0436311`, `1203550`, `c0a0f8d`, `7e6fa68`, `69e4bde`, `e56307b`). |
+| 16/11/2026 | Implementação do cadastro de encomendas e do Worker Python de rastreamento (`3db2c5a`, `b80e931`). Atualização da documentação e da lista de integrantes. |
+| 15/11/2026 | Implementação da API de envios e configuração do mock com cenários iniciais e instruções de validação (`52cf2f4`, `e91c0c6`, `9c27a7e`, `2196628`). Atualização da lista de integrantes. |
+| 12/11/2026 | Criação da interface de listagem e status dos envios (`1d4fbdb`). |
+| 09/11/2026 | Estrutura inicial do projeto de entregas, com React e integração HTTP da US-01 (`fcc8126`, `cd76c61`). |
+| 05/11/2026 | Criação do repositório (`5208433`). |
 
 ## Inicialização rápida no Windows
 
-Siga o [Guia do Professor](GUIA_PROFESSOR.md) para preparar o banco e
-executar a demonstração. Dê duplo clique em `run_app.bat` e selecione
-**4 — Configurar ou validar MySQL**. O assistente mostra, copia ou abre o
-[SQL de preparação](api-envios/sql/setup-professor.sql) com um marcador de
-senha para preencher em uma cópia. Após executar o SQL no seu banco,
-escolha **4 — MySQL configurado — validar e continuar** no assistente.
+O launcher usa o Maven Wrapper `api-envios\mvnw.cmd` para executar a API.
+O Wrapper baixa o Maven na primeira execução caso ele ainda não esteja no
+cache. Os pré-requisitos da demonstração estão no [Guia do Professor](GUIA_PROFESSOR.md).
+
+1. Com o MySQL ou MariaDB em execução, abra `run_app.bat` e escolha
+   **4 — Configurar ou validar MySQL** no menu principal.
+2. Para preparar o banco local, escolha **6 — Configurar banco automaticamente**
+   dentro do assistente e informe as credenciais administrativas (`root` por
+   padrão). O launcher cria o banco `amor_em_mechas` e as tabelas `envios` e
+   `envio_historico` quando necessário. Ele gera uma senha para
+   `rastreamento_app@localhost`, atualiza a senha se a conta já existir e
+   salva a configuração da aplicação no `.env` da raiz. A senha administrativa
+   é usada somente durante a configuração.
+3. Após a validação, escolha **2 — Iniciar demonstração completa**. No painel,
+   cadastre um envio com o código `EM_TRANSITO` e um nome de destinatário.
+   Aguarde o Worker atualizar o status e abra o histórico do envio.
+
+Para preparar o banco manualmente, use as opções **1**, **2** ou **3** do
+assistente para mostrar, copiar ou abrir o [SQL de preparação](api-envios/sql/setup-professor.sql).
+Substitua `<SENHA_FORTE_AQUI>` em uma cópia, execute o SQL e escolha
+**4 — MySQL configurado — validar e continuar**. Esse caminho permite ajustar
+a origem da conta para um banco em VM ou servidor remoto.
 
 | Opção | O que faz |
 |---|---|
@@ -51,8 +74,8 @@ escolha **4 — MySQL configurado — validar e continuar** no assistente.
 Na primeira execução, o launcher cria o `.env` na raiz do projeto a partir
 de `launcher.env.example`. Para cada chave, ele prioriza as variáveis do
 processo, o `.env`, o `launcher.env` de instalações anteriores e os padrões.
-O assistente aceita alterações na sessão atual e salva a senha no `.env`,
-ignorado pelo Git, somente se você selecionar essa opção. O launcher passa
+Na configuração manual, o assistente permite manter as credenciais na sessão
+atual ou salvá-las no `.env`, ignorado pelo Git. O launcher passa
 a mesma configuração validada ao Spring e ao Worker. Ele valida TCP, protocolo,
 autenticação, `SELECT 1`, acesso a `amor_em_mechas`, leitura das duas tabelas
 e grants diretos de CRUD. A validação de grants consulta metadados, sem
@@ -95,13 +118,13 @@ e as importações estiverem válidos. O autoteste roda com
 
 | Mensagem ou sintoma | O que fazer |
 |---|---|
-| Java não encontrado | Instale JDK 17+, configure PATH e `JAVA_HOME` e rode `java -version` e `mvn --version`. |
+| Java não encontrado | Instale o JDK 17 ou superior, configure `PATH` e `JAVA_HOME` e execute `java -version` e `.\api-envios\mvnw.cmd --version` a partir da raiz. |
 | Python aponta para outro computador ou `No Python at ...` | Instale Python local. O launcher arquiva uma `.venv` inválida em `.launcher/` e cria outra. Para recriá-la manualmente, pare o launcher, renomeie a pasta `.venv` do Worker e rode a demonstração novamente. |
 | pip ou npm retornou erro | Abra o log `worker-setup.log` ou `frontend-setup.log`, confira acesso ao registro e repita com `-ForceDependencies`. |
 | Porta 8080 ou 5173 ocupada | Confira o PID exibido. Reuse a instância somente se for do mesmo projeto ou altere a porta no `.env` da raiz. |
 | MySQL não responde | Confirme `DB_HOST`, `DB_PORT` e se o servidor está ouvindo na interface apropriada. |
 | `Access denied for user` | Revise usuário, senha e permissões da conta no schema de desenvolvimento. |
-| `Unknown database` | Execute o SQL de preparação para criar `amor_em_mechas`. |
+| `Unknown database` | Use a configuração automática do assistente ou execute o SQL de preparação para criar `amor_em_mechas`. |
 | Spring iniciou e encerrou | Abra `spring.log` e confira Maven, banco e porta. |
 | Worker não iniciou | Abra `worker.log` e `worker-setup.log`. A opção 1 permite iniciar apenas a aplicação web. |
 | Frontend não abriu | Confira `frontend.log` e a saúde do Spring. Se a associação do navegador falhar, abra a URL exibida no terminal. |
