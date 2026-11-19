@@ -1,0 +1,17 @@
+-- Execute após criar as tabelas com 001-rastreamento.sql.
+-- localhost: banco e aplicação na mesma máquina.
+-- VM ou servidor remoto: substitua localhost pelo host/IP de origem do cliente
+-- em todas as ocorrências abaixo. Use % somente se a demonstração exigir.
+-- Substitua <SENHA_FORTE_AQUI> e use a mesma senha no launcher.
+-- Se a conta já existir, sua senha e seus grants anteriores são preservados.
+CREATE USER IF NOT EXISTS 'rastreamento_app'@'localhost' IDENTIFIED BY '<SENHA_FORTE_AQUI>';
+
+-- GRANTS
+GRANT SELECT, INSERT, UPDATE, DELETE ON `amor_em_mechas`.`envios`
+    TO 'rastreamento_app'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE ON `amor_em_mechas`.`envio_historico`
+    TO 'rastreamento_app'@'localhost';
+
+-- CREATE USER e GRANT aplicam as alterações sem FLUSH PRIVILEGES.
+
+SHOW GRANTS FOR 'rastreamento_app'@'localhost';

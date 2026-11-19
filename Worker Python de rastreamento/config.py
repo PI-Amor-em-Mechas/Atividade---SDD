@@ -9,8 +9,8 @@ from urllib.parse import urlsplit
 class Config:
     db_host: str = field(default_factory=lambda: os.getenv("DB_HOST", "localhost"))
     db_port: int = field(default_factory=lambda: int(os.getenv("DB_PORT", "3306")))
-    db_name: str = field(default_factory=lambda: os.getenv("DB_NAME", "rastreio"))
-    db_user: str | None = field(default_factory=lambda: os.getenv("DB_USER"))
+    db_name: str = field(default_factory=lambda: os.getenv("DB_NAME", "amor_em_mechas"))
+    db_user: str = field(default_factory=lambda: os.getenv("DB_USER", "rastreamento_app"))
     db_password: str | None = field(default_factory=lambda: os.getenv("DB_PASSWORD"), repr=False)
     tracking_provider: str = field(default_factory=lambda: os.getenv("TRACKING_PROVIDER", ""))
     tracking_api_base_url: str = field(default_factory=lambda: os.getenv("TRACKING_API_BASE_URL", ""))

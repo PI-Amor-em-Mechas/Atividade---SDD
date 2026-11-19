@@ -1,9 +1,10 @@
 # Worker de rastreamento
 
-Execute o Spring Boot primeiro para criar as tabelas MySQL `envios` e
-`envio_historico`. Configure o Worker com o mesmo `DB_HOST` (padrão
-`localhost`), `DB_PORT` (`3306`) e `DB_NAME` (`rastreio`) do Spring.
-Forneça `DB_USER` e `DB_PASSWORD` no ambiente. A conta do Worker precisa
+Valide as tabelas `envios` e `envio_historico` conforme a
+[migration manual](../api-envios/sql/README.md). Configure o Worker com o
+mesmo `DB_HOST`, `DB_PORT`, `DB_NAME` e `DB_USER` do Spring. Os padrões
+são `localhost`, `3306`, `amor_em_mechas` e `rastreamento_app`.
+Forneça a mesma `DB_PASSWORD` externamente. A conta do Worker precisa
 ler as duas tabelas, atualizar `envios` e inserir em `envio_historico`.
 
 ## Provider local
@@ -76,8 +77,9 @@ O contrato sintético retorna um status único por resposta.
 
 ## Testes MySQL
 
-Use um schema descartável e vazio com nome terminado em `_test`. Inicie o
-Spring apontando para esse schema para o Hibernate criar as tabelas.
+Use um schema descartável e vazio com nome terminado em `_test`. Aplique
+as duas instruções da migration em uma cópia ajustada apenas para apontar
+para esse schema de teste. O Hibernate usa validação.
 A conta de testes também precisa inserir e remover os próprios registros
 em `envios` e remover o histórico desses registros.
 
