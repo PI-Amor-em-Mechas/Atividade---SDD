@@ -40,6 +40,68 @@ carregue o arquivo, substitua o marcador e execute.
     } finally { Pop-Location }
 }
 
+function New-AppPassword {
+    $chars = [char[]]'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+    $bytes = New-Object byte[] 20
+    $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+    try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+    # Prefix guarantees upper, lower, digit and symbol for MySQL validate_password.
+    return 'Ra9!' + -join ($bytes | ForEach-Object { $chars[$_ % $chars.Length] })
+}
+
+function Invoke-AutomaticDatabaseSetup($Config) {
+    Write-Host @'
+========================================
+CONFIGURAÇÃO AUTOMÁTICA DO BANCO
+========================================
+Será usada a conta administrativa do MySQL (normalmente root) para criar:
+  - database amor_em_mechas
+  - tabelas envios e envio_historico
+  - usuário rastreamento_app (senha gerada e salva no .env da raiz)
+A senha do administrador NÃO é salva.
+'@
+    $adminUser = Read-Host 'Usuário administrador [root]'
+    if (-not $adminUser) { $adminUser = 'root' }
+    $secret = Read-Host "Senha do $adminUser no MySQL" -AsSecureString
+    $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
+    try { $adminPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer); $secret.Dispose() }
+
+    $proposal = $Config.Clone()
+    $proposal.DB_NAME = 'amor_em_mechas'
+    $proposal.DB_USER = 'rastreamento_app'
+    $proposal.DB_PASSWORD = New-AppPassword
+    $script:Secrets = @($adminPassword, $proposal.DB_PASSWORD, $Config.DB_PASSWORD, $Config.TRACKING_API_TOKEN)
+
+    $python = Find-Python
+    if (-not $python) { throw 'Instale Python 3.10+ para configurar o banco automaticamente.' }
+    Write-LauncherLog 'Preparando Connector/Python (pode levar alguns segundos na primeira vez).'
+    $venvExe = Prepare-Worker $python
+    $setupScript = Join-Path $PSScriptRoot 'mysql-setup.py'
+    $values = @{
+        DB_HOST = $proposal.DB_HOST; DB_PORT = $proposal.DB_PORT
+        DB_ADMIN_USER = $adminUser; DB_ADMIN_PASSWORD = $adminPassword
+        DB_PASSWORD = $proposal.DB_PASSWORD; TRACKING_API_TOKEN = $null
+    }
+    $result = Use-Environment $values { Invoke-Tool $venvExe @('-B', $setupScript) }
+    $adminPassword = $null
+    $codes = @($result.Text -split '\r?\n' | Where-Object { $_ -cmatch '^SETUP_' })
+    if ('SETUP_OK' -notin $codes) {
+        $detail = switch -Regex ($codes -join ' ') {
+            'SETUP_ADMIN_NEGADO' { "Senha do $adminUser incorreta (ou usuário inexistente)." }
+            'SETUP_ADMIN_SEM_PERMISSAO' { "A conta $adminUser não pode criar banco/usuário. Use root." }
+            'SETUP_POLITICA_SENHA' { 'A política de senha do MySQL recusou a senha gerada. Rode novamente.' }
+            'SETUP_HOST_INACESSIVEL' { "MySQL não respondeu em $($proposal.DB_HOST):$($proposal.DB_PORT)." }
+            'SETUP_DRIVER_AUSENTE' { 'Connector/Python ausente. Rode novamente para reinstalar.' }
+            default { "Falha ao aplicar o SQL ($($codes -join ', '))." }
+        }
+        throw "Configuração automática falhou: $detail"
+    }
+    Write-LauncherLog 'Banco, tabelas e usuário rastreamento_app criados/atualizados.' 'OK'
+    Save-DatabaseConfiguration $proposal
+    return $proposal
+}
+
 function Show-MySqlAssistant($Config, [string]$PendingMode) {
     while ($true) {
         Write-Host @'
@@ -53,6 +115,7 @@ Banco amor_em_mechas. Tabelas envios e envio_historico.
 [3] Abrir arquivo SQL
 [4] MySQL configurado — validar e continuar
 [5] Alterar host, porta, usuário ou banco
+[6] Configurar banco automaticamente (pede a senha do root)
 [0] Voltar ao menu principal
 '@
         $answer = Read-Host 'Escolha uma opção [0]'
@@ -66,7 +129,8 @@ Banco amor_em_mechas. Tabelas envios e envio_historico.
                     $proposal = Request-DatabaseConfiguration $Config
                     if ($proposal) { $Config = $proposal }
                 }
-                '4' {
+                { $_ -in '4', '6' } {
+                    if ($_ -eq '6') { $Config = Invoke-AutomaticDatabaseSetup $Config }
                     $python = Find-Python
                     $selected = Use-LauncherLock { Resolve-Database $Config $python -Interactive -PromptCredentials }
                     if (-not $selected) { break }

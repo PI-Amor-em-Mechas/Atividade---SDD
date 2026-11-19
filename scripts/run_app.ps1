@@ -154,7 +154,7 @@ function Invoke-DatabaseProbe($Config, $Python, [switch]$AllowInstall) {
     return @{ Tcp = $true; Codes = $codes }
 }
 
-function Show-DatabaseResult($Config, $Result) {
+function Show-DatabaseResult($Config, $Result, [switch]$Hint) {
     $address = "$($Config.DB_HOST):$($Config.DB_PORT)"
     $status = $Result.Codes[-1]
     if ($status -eq 'MYSQL_OK') {
@@ -166,7 +166,15 @@ function Show-DatabaseResult($Config, $Result) {
             if ($Result.Tcp) { "A porta em $address respondeu sem confirmar o protocolo MySQL/MariaDB." }
             else { "Nenhum servidor MySQL/MariaDB respondeu em $address. Verifique se o serviço está iniciado e acessível." }
         }
-        MYSQL_ENCONTRADO_SEM_CREDENCIAIS { 'Servidor encontrado. Informe DB_USER e DB_PASSWORD no .env da raiz ou na opção 5 do assistente MySQL.' }
+        MYSQL_ENCONTRADO_SEM_CREDENCIAIS {
+            Write-LauncherLog "MySQL encontrado em $address, mas a senha ainda não foi informada." 'AVISO'
+            if ($Hint) {
+                Write-Host 'Próximo passo: escolha [6] no menu abaixo e digite a senha do root do MySQL.'
+                Write-Host 'O launcher cria banco, tabelas e usuário e salva a configuração sozinho.'
+                Write-Host '(Se o usuário rastreamento_app já existe, informe a senha no .env da raiz ou use [4].)'
+            }
+            return
+        }
         MYSQL_CREDENCIAL_INVALIDA { 'O servidor recusou a autenticação. Revise DB_USER e DB_PASSWORD na opção 5.' }
         MYSQL_DATABASE_AUSENTE { 'O database amor_em_mechas não foi encontrado. Use “Mostrar SQL de configuração”.' }
         MYSQL_SCHEMA_INCOMPLETO { 'O módulo de rastreamento ainda não foi preparado. Use “Mostrar SQL de configuração”.' }
@@ -221,7 +229,7 @@ function Resolve-Database($Config, $Python, [switch]$Interactive, [switch]$Diagn
             Write-LauncherLog 'Verificando candidato alternativo sem enviar credenciais.'
         }
         $result = Invoke-DatabaseProbe $probeConfig $Python -AllowInstall:(-not $Diagnostic -and -not $fallback)
-        Show-DatabaseResult $probeConfig $result
+        Show-DatabaseResult $probeConfig $result -Hint:$Diagnostic
         if ($PromptCredentials -and $result.Codes[-1] -eq 'MYSQL_ENCONTRADO_SEM_CREDENCIAIS') {
             $proposal = Request-DatabaseConfiguration $selected
             if (-not $proposal) { return }
