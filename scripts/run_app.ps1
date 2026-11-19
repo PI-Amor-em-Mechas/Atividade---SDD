@@ -102,7 +102,7 @@ function Get-DatabaseCandidates($Config) {
     if ($Config.DB_FILE_HOST -match '^[A-Za-z0-9][A-Za-z0-9.-]*$' -and
         $Config.DB_FILE_PORT -match '^\d{1,5}$' -and
         [int]$Config.DB_FILE_PORT -ge 1 -and [int]$Config.DB_FILE_PORT -le 65535) {
-        $candidates += @{ Host = $Config.DB_FILE_HOST; Port = [int]$Config.DB_FILE_PORT; Source = 'launcher.env' }
+        $candidates += @{ Host = $Config.DB_FILE_HOST; Port = [int]$Config.DB_FILE_PORT; Source = $Config.DB_FILE_SOURCE }
     }
     $candidates += @{ Host = 'localhost'; Port = [int]$Config.DB_PORT; Source = 'local' }
     $seen = @{}
@@ -166,7 +166,7 @@ function Show-DatabaseResult($Config, $Result) {
             if ($Result.Tcp) { "A porta em $address respondeu sem confirmar o protocolo MySQL/MariaDB." }
             else { "Nenhum servidor MySQL/MariaDB respondeu em $address. Verifique se o serviço está iniciado e acessível." }
         }
-        MYSQL_ENCONTRADO_SEM_CREDENCIAIS { 'Servidor encontrado. Informe DB_USER e DB_PASSWORD.' }
+        MYSQL_ENCONTRADO_SEM_CREDENCIAIS { 'Servidor encontrado. Informe DB_USER e DB_PASSWORD no .env da raiz ou na opção 5 do assistente MySQL.' }
         MYSQL_CREDENCIAL_INVALIDA { 'O servidor recusou a autenticação. Revise DB_USER e DB_PASSWORD na opção 5.' }
         MYSQL_DATABASE_AUSENTE { 'O database amor_em_mechas não foi encontrado. Use “Mostrar SQL de configuração”.' }
         MYSQL_SCHEMA_INCOMPLETO { 'O módulo de rastreamento ainda não foi preparado. Use “Mostrar SQL de configuração”.' }
@@ -184,13 +184,13 @@ function Show-DatabaseResult($Config, $Result) {
 }
 
 function Save-DatabaseConfiguration($Config) {
-    $file = Join-Path $script:Root 'launcher.env'
+    $file = Join-Path $script:Root '.env'
     $template = if (Test-Path -LiteralPath $file) { $file } else { Join-Path $script:Root 'launcher.env.example' }
     $keys = @('DB_HOST','DB_PORT','DB_NAME','DB_USER','DB_PASSWORD')
     $lines = @(Get-Content -LiteralPath $template -Encoding UTF8 | Where-Object { $_ -notmatch '^\s*DB_(HOST|PORT|NAME|USER|PASSWORD)\s*=' })
     foreach ($key in $keys) {
         $value = [string]$Config[$key]
-        if ($value -match '[\r\n]') { throw 'launcher.env aceita um valor por linha.' }
+        if ($value -match '[\r\n]') { throw '.env aceita um valor por linha.' }
         $lines += "$key=""$value"""
     }
     $temp = Join-Path $script:Runtime ("config-" + [guid]::NewGuid().ToString('N') + '.tmp')
@@ -201,7 +201,7 @@ function Save-DatabaseConfiguration($Config) {
     } finally {
         if ([IO.File]::Exists($temp)) { [IO.File]::Delete($temp) }
     }
-    Write-LauncherLog 'Configuração salva em launcher.env. Variáveis do processo mantêm prioridade nas próximas execuções.' 'OK'
+    Write-LauncherLog 'Configuração salva no .env da raiz. Variáveis do processo mantêm prioridade nas próximas execuções.' 'OK'
 }
 
 function Resolve-Database($Config, $Python, [switch]$Interactive, [switch]$Diagnostic, [switch]$PromptCredentials) {
@@ -237,7 +237,7 @@ function Resolve-Database($Config, $Python, [switch]$Interactive, [switch]$Diagn
         if ($result.Codes[-1] -eq 'MYSQL_OK') {
             $selected.DB_JDBC_VENDOR = if ('MYSQL_MOTOR_MARIADB' -in $result.Codes) { 'mariadb' } else { 'mysql' }
             if ($fallback) {
-                $answer = Read-Host '[1] Usar nesta execução  [2] Usar e salvar em launcher.env  [0] Cancelar'
+                $answer = Read-Host '[1] Usar nesta execução  [2] Usar e salvar no .env  [0] Cancelar'
                 if ($answer -notin '1','2') { return }
                 if ($answer -eq '2') { Save-DatabaseConfiguration $selected }
             }
@@ -249,17 +249,6 @@ function Resolve-Database($Config, $Python, [switch]$Interactive, [switch]$Diagn
 }
 
 function Request-DatabaseConfiguration($Current) {
-    $file = Join-Path $script:Root 'launcher.env'
-    if (-not (Test-Path -LiteralPath $file)) {
-        Write-Host '========================================'
-        Write-Host 'CONFIGURAÇÃO LOCAL'
-        Write-Host 'O arquivo launcher.env ainda não existe.'
-        Write-Host 'Deseja criar uma configuração exclusiva desta máquina?'
-        if ((Read-Host '[1] Sim  [0] Voltar') -ne '1') { return }
-        if (-not (Test-Path -LiteralPath $file)) {
-            Copy-Item -LiteralPath (Join-Path $script:Root 'launcher.env.example') -Destination $file
-        }
-    }
     $proposal = $Current.Clone()
     $defaultHost = $Current.DB_HOST
     $entered = Read-Host "Host do MySQL [$defaultHost]"
@@ -281,7 +270,7 @@ function Request-DatabaseConfiguration($Current) {
     try { $proposal.DB_PASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) }
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer); $secret.Dispose() }
     $script:Secrets = @($Current.DB_PASSWORD, $proposal.DB_PASSWORD, $Current.TRACKING_API_TOKEN)
-    $answer = Read-Host '[1] Usar somente nesta execução  [2] Salvar em launcher.env local  [0] Cancelar'
+    $answer = Read-Host '[1] Usar somente nesta execução  [2] Salvar no .env  [0] Cancelar'
     if ($answer -notin '1','2') { return }
     if ($answer -eq '2') { Save-DatabaseConfiguration $proposal }
     return $proposal
@@ -436,7 +425,7 @@ function Test-ReuseService([string]$Service, [int]$Port, [hashtable]$State, [str
         }
         if ($reuse) { Write-LauncherLog "$Service externo reutilizado. Sua parada continua sob controle do proprietário." 'OK'; return $true }
     }
-    throw "Porta $Port indisponível para $Service. Ajuste a porta no launcher.env ou libere-a por conta própria."
+    throw "Porta $Port indisponível para $Service. Ajuste a porta no .env da raiz ou libere-a por conta própria."
 }
 
 function Start-Application([string]$SelectedMode, $Config) {
@@ -597,8 +586,9 @@ try {
         if (-not (Test-Path -LiteralPath $path -PathType Container)) { throw 'Estrutura de módulos incompleta no checkout.' }
     }
     if (-not (Test-Path -LiteralPath $script:Logs)) { $null = New-Item -ItemType Directory -Path $script:Logs -Force }
+    if ($Mode -eq 'Stop') { if (-not (Stop-Launcher (Get-ConfiguredStopTimeout))) { exit 1 }; exit 0 }
+    Initialize-LauncherConfiguration
     if ($Mode -ne 'Menu') {
-        if ($Mode -eq 'Stop') { if (-not (Stop-Launcher (Get-ConfiguredStopTimeout))) { exit 1 }; exit 0 }
         $config = Get-LauncherConfiguration
         if ($Mode -eq 'Check') { Show-EnvironmentDiagnostics $config; exit 0 }
         Start-Application $Mode $config

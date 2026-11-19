@@ -31,6 +31,27 @@ Test-Case 'precedência do ambiente' {
         Assert-Launcher ($config.DB_NAME -eq 'processo') 'Ambiente não teve precedência.'
     }
 }
+Test-Case 'primeira execução gera .env sem perder a configuração legada' {
+    $file = Join-Path $script:Root '.env'
+    $legacy = Join-Path $script:Root 'launcher.env'
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'launcher.env.example') -Destination $script:Root
+    Set-Content -LiteralPath $legacy -Value @('DB_HOST=192.0.2.40', 'DB_PORT=3331', 'DB_PASSWORD=senha-legada', 'FRONTEND_PORT=5179')
+    Use-Environment @{ DB_HOST=$null; DB_PORT=$null; DB_PASSWORD=$null; FRONTEND_PORT=$null } {
+        Initialize-LauncherConfiguration
+        Assert-Launcher (Test-Path -LiteralPath $file -PathType Leaf) '.env não foi criado.'
+        Assert-Launcher (-not (Read-LocalConfiguration $file).ContainsKey('DB_PASSWORD')) 'A criação persistiu uma senha.'
+        $config = Get-LauncherConfiguration
+        Assert-Launcher ($config.DB_FILE_SOURCE -eq 'launcher.env' -and $config.DB_HOST -eq '192.0.2.40' -and $config.DB_PORT -eq '3331' -and $config.DB_PASSWORD -eq 'senha-legada') 'Configuração legada foi ignorada.'
+        Set-Content -LiteralPath $file -Value @('DB_HOST=localhost', 'DB_PORT=3306', 'DB_PASSWORD="x=y # demo"')
+        Initialize-LauncherConfiguration
+        $config = Get-LauncherConfiguration
+        Assert-Launcher ($config.DB_FILE_SOURCE -eq '.env' -and $config.DB_HOST -eq 'localhost' -and $config.DB_PORT -eq '3306' -and $config.DB_PASSWORD -ceq 'x=y # demo' -and $config.FRONTEND_PORT -eq '5179') 'O .env foi sobrescrito ou a precedência divergiu.'
+        Use-Environment @{ DB_HOST='127.0.0.1' } {
+            $config = Get-LauncherConfiguration
+            Assert-Launcher ($config.DB_HOST -eq '127.0.0.1' -and $config.DB_FILE_HOST -eq 'localhost') 'O ambiente não teve precedência sobre .env.'
+        }
+    }
+}
 Test-Case 'segredos mascarados no log' {
     $script:Secrets = @('senha-sintetica', 'token-sintetico')
     Write-LauncherLog 'DB_PASSWORD=senha-sintetica TRACKING_API_TOKEN=token-sintetico'
@@ -164,9 +185,10 @@ Test-Case 'timeout real do health check e encerramento de supervisor próprio' {
 Test-Case 'descoberta usa host explícito, porta local configurada' {
     $items = @(Get-DatabaseCandidates @{
         DB_HOST='192.0.2.20'; DB_PORT=3330; DB_HOST_SOURCE='ambiente'
-        DB_FILE_HOST='192.0.2.40'; DB_FILE_PORT=3331
+        DB_FILE_HOST='192.0.2.40'; DB_FILE_PORT=3331; DB_FILE_SOURCE='.env'
     })
     Assert-Launcher (($items | ForEach-Object { "$($_.Host):$($_.Port)" }) -join ',' -eq '192.0.2.20:3330,192.0.2.40:3331,localhost:3330') 'Ordem ou escopo de busca incorreto.'
+    Assert-Launcher ($items[1].Source -eq '.env') 'Origem do endpoint de fallback incorreta.'
     $local = @(Get-DatabaseCandidates @{ DB_HOST='localhost'; DB_PORT=3306; DB_HOST_SOURCE='padrão' })
     Assert-Launcher ($local.Count -eq 1) 'Candidato local duplicado.'
 }
@@ -243,16 +265,15 @@ Test-Case 'probe diferencia TCP, falta de credenciais e autenticação' {
     Assert-Launcher ('MYSQL_CREDENCIAL_INVALIDA' -in (Invoke-DatabaseProbe $config $python).Codes) 'Falha de autenticação não diagnosticada.'
 }
 Test-Case 'configuração assistida salva a senha somente sob autorização' {
-    $file = Join-Path $script:Root 'launcher.env'
-    [IO.File]::Delete($file)
-    Set-Content -LiteralPath (Join-Path $script:Root 'launcher.env.example') -Value 'FRONTEND_PORT=5179'
+    $file = Join-Path $script:Root '.env'
+    Set-Content -LiteralPath $file -Value 'FRONTEND_PORT=5179'
     $answers = New-Object 'System.Collections.Generic.Queue[string]'
-    foreach ($value in '1','192.0.2.40','','','usuario','1','192.0.2.40','','','usuario','2') { $answers.Enqueue($value) }
+    foreach ($value in '192.0.2.40','','','usuario','1','192.0.2.40','','','usuario','2') { $answers.Enqueue($value) }
     function Read-Host($Prompt,[switch]$AsSecureString) {
         if ($AsSecureString) { return ConvertTo-SecureString 'senha-teste-wizard' -AsPlainText -Force }
         return $answers.Dequeue()
     }
-    $config = Get-LauncherConfiguration $file
+    $config = Get-LauncherConfiguration
     $config.DB_HOST_SOURCE = 'padrão'
     $selected = Request-DatabaseConfiguration $config
     $fromFile = Read-LocalConfiguration $file
@@ -261,6 +282,7 @@ Test-Case 'configuração assistida salva a senha somente sob autorização' {
     $fromFile = Read-LocalConfiguration $file
     Assert-Launcher ($fromFile.DB_PASSWORD -eq 'senha-teste-wizard') 'Senha autorizada nao foi persistida.'
     Assert-Launcher ($selected.DB_HOST -eq '192.0.2.40' -and $fromFile.FRONTEND_PORT -eq '5179') 'Criação do arquivo incorreta.'
+    Assert-Launcher ((Read-LocalConfiguration (Join-Path $script:Root 'launcher.env')).DB_PASSWORD -eq 'senha-legada') 'Arquivo legado foi alterado.'
     Assert-Launcher ((Get-Content -Raw -LiteralPath (Join-Path $script:Logs 'launcher.log')) -notmatch 'senha-teste-wizard') 'Senha apareceu no log.'
 }
 Test-Case 'Spring e Worker partem das mesmas variáveis e stop não gerencia o MySQL' {

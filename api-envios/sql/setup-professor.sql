@@ -1,6 +1,6 @@
 -- ANTES DE EXECUTAR (MySQL 8+ / MariaDB 11+)
 -- Substitua <SENHA_FORTE_AQUI> por uma senha local forte.
--- Use a mesma senha posteriormente no launcher.env.
+-- Informe a mesma senha no assistente MySQL do launcher ou no .env da raiz.
 -- Execute na sessão administrativa. Evite guardar a cópia com a senha.
 CREATE DATABASE IF NOT EXISTS `amor_em_mechas`
     DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

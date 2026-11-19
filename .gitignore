@@ -4,4 +4,5 @@
 /framework-worker-entregas/test-results/
 /framework-worker-entregas/playwright-report/
 /launcher.env
+/.env
 /.launcher/

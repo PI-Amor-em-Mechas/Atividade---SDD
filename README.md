@@ -48,10 +48,12 @@ escolha **4 — MySQL configurado — validar e continuar** no assistente.
 | 6 — Parar serviços iniciados pelo launcher | Encerra os processos registrados pelo launcher. |
 | 0 — Sair | Fecha o menu. Os serviços continuam ativos até a parada. |
 
-A configuração inicial prioriza as variáveis do processo, depois
-`launcher.env` e, por fim, os padrões. O assistente aceita alterações na
-sessão atual e salva a senha em `launcher.env`, ignorado pelo Git, somente
-se você selecionar essa opção. O launcher valida TCP, protocolo,
+Na primeira execução, o launcher cria o `.env` na raiz do projeto a partir
+de `launcher.env.example`. Para cada chave, ele prioriza as variáveis do
+processo, o `.env`, o `launcher.env` de instalações anteriores e os padrões.
+O assistente aceita alterações na sessão atual e salva a senha no `.env`,
+ignorado pelo Git, somente se você selecionar essa opção. O launcher passa
+a mesma configuração validada ao Spring e ao Worker. Ele valida TCP, protocolo,
 autenticação, `SELECT 1`, acesso a `amor_em_mechas`, leitura das duas tabelas
 e grants diretos de CRUD. A validação de grants consulta metadados, sem
 gravar dados. O launcher seleciona o driver JDBC do motor identificado,
@@ -96,7 +98,7 @@ e as importações estiverem válidos. O autoteste roda com
 | Java não encontrado | Instale JDK 17+, configure PATH e `JAVA_HOME` e rode `java -version` e `mvn --version`. |
 | Python aponta para outro computador ou `No Python at ...` | Instale Python local. O launcher arquiva uma `.venv` inválida em `.launcher/` e cria outra. Para recriá-la manualmente, pare o launcher, renomeie a pasta `.venv` do Worker e rode a demonstração novamente. |
 | pip ou npm retornou erro | Abra o log `worker-setup.log` ou `frontend-setup.log`, confira acesso ao registro e repita com `-ForceDependencies`. |
-| Porta 8080 ou 5173 ocupada | Confira o PID exibido. Reuse a instância somente se for do mesmo projeto ou altere a porta em `launcher.env`. |
+| Porta 8080 ou 5173 ocupada | Confira o PID exibido. Reuse a instância somente se for do mesmo projeto ou altere a porta no `.env` da raiz. |
 | MySQL não responde | Confirme `DB_HOST`, `DB_PORT` e se o servidor está ouvindo na interface apropriada. |
 | `Access denied for user` | Revise usuário, senha e permissões da conta no schema de desenvolvimento. |
 | `Unknown database` | Execute o SQL de preparação para criar `amor_em_mechas`. |

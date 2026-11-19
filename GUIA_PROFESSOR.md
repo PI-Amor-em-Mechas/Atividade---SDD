@@ -14,7 +14,7 @@
 2. No menu principal, escolha **4 — Configurar ou validar MySQL**. O assistente diagnostica o endpoint configurado. Para usar uma VM ou outra porta, escolha **5 — Alterar host, porta, usuário ou banco** no assistente.
 3. Se faltar o banco, as tabelas ou a conta, use **1 — Mostrar**, **2 — Copiar** ou **3 — Abrir** o [SQL de preparação](api-envios/sql/setup-professor.sql). Trabalhe em uma cópia ou cole no editor SQL do cliente. Substitua `<SENHA_FORTE_AQUI>` por uma senha local forte.
 4. Execute o SQL no Workbench, no DBeaver ou no cliente de linha de comando com a conta administrativa. No Linux, se sua conta tiver sudo para administrar o banco, você pode usar `sudo mariadb < setup-professor.sql` com a cópia editada. Para banco remoto, troque `localhost` no SQL pelo IP ou nome de origem do cliente Windows visto pelo servidor. Use `%` apenas se a demonstração exigir.
-5. Use a mesma senha no launcher. A entrada é mascarada. Você pode manter a configuração só durante a sessão ou salvar em `launcher.env`, arquivo local ignorado pelo Git. Se optar por salvar, mantenha o arquivo privado.
+5. Use a mesma senha no launcher. A entrada é mascarada. Você pode manter a configuração só durante a sessão ou salvar no `.env` da raiz, arquivo local que o launcher cria e que o Git ignora. Se optar por salvar, mantenha o arquivo privado.
 
 ## 3. Iniciar
 

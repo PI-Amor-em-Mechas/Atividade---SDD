@@ -20,7 +20,7 @@ function Read-LocalConfiguration([string]$Path) {
             $number++
             if ($line -match '^\s*(#|$)') { continue }
             if ($line -notmatch '^\s*([A-Z][A-Z0-9_]*)\s*=(.*)$') {
-                throw "launcher.env: linha $number inválida (use CHAVE=valor)."
+                throw "$(Split-Path -Leaf $Path): linha $number inválida (use CHAVE=valor)."
             }
             $value = $Matches[2].Trim()
             if ($value.Length -ge 2 -and ($value[0] -in "'", '"') -and $value[0] -eq $value[-1]) {
@@ -32,8 +32,24 @@ function Read-LocalConfiguration([string]$Path) {
     return $values
 }
 
-function Get-LauncherConfiguration([string]$Path = (Join-Path $script:Root 'launcher.env')) {
-    $values = Read-LocalConfiguration $Path
+function Initialize-LauncherConfiguration {
+    $file = Join-Path $script:Root '.env'
+    if (Test-Path -LiteralPath $file -PathType Leaf) { return }
+    Use-LauncherLock {
+        if (Test-Path -LiteralPath $file -PathType Leaf) { return }
+        $temp = Join-Path $script:Runtime ("env-" + [guid]::NewGuid().ToString('N') + '.tmp')
+        try {
+            [IO.File]::Copy((Join-Path $script:Root 'launcher.env.example'), $temp)
+            [IO.File]::Move($temp, $file)
+        } finally { [IO.File]::Delete($temp) }
+        Write-LauncherLog 'Arquivo .env criado na raiz do projeto.' 'OK'
+    }
+}
+
+function Get-LauncherConfiguration {
+    $values = Read-LocalConfiguration (Join-Path $script:Root 'launcher.env')
+    $localValues = Read-LocalConfiguration (Join-Path $script:Root '.env')
+    foreach ($key in $localValues.Keys) { $values[$key] = $localValues[$key] }
     $defaults = @{
         DB_HOST = 'localhost'; DB_PORT = '3306'; DB_NAME = 'amor_em_mechas'; DB_USER = 'rastreamento_app'; DB_PASSWORD = ''
         SPRING_PORT = '8080'; FRONTEND_PORT = '5173'; STUB_PORT = '8081'
@@ -47,12 +63,13 @@ function Get-LauncherConfiguration([string]$Path = (Join-Path $script:Root 'laun
         $result[$key] = if ($null -ne $fromEnv -and (-not $endpointKey -or $fromEnv.Trim())) { $fromEnv }
             elseif ($values.ContainsKey($key) -and (-not $endpointKey -or $values[$key].Trim())) { $values[$key] } else { $defaults[$key] }
     }
-    $result.DB_HOST_SOURCE = if (([string][Environment]::GetEnvironmentVariable('DB_HOST', 'Process')).Trim()) { 'ambiente' }
-        elseif ($values.DB_HOST) { 'launcher.env' } else { 'padrão' }
     if ($values.DB_HOST) {
         $result.DB_FILE_HOST = $values.DB_HOST
         $result.DB_FILE_PORT = if ($values.DB_PORT) { $values.DB_PORT } else { $defaults.DB_PORT }
+        $result.DB_FILE_SOURCE = if ($localValues.ContainsKey('DB_HOST')) { '.env' } else { 'launcher.env' }
     }
+    $result.DB_HOST_SOURCE = if (([string][Environment]::GetEnvironmentVariable('DB_HOST', 'Process')).Trim()) { 'ambiente' }
+        elseif ($result.DB_FILE_SOURCE) { $result.DB_FILE_SOURCE } else { 'padrão' }
     if (-not $result.DB_HOST) { $result.DB_HOST = 'localhost' }
     if (-not $result.DB_PORT) { $result.DB_PORT = '3306' }
     $script:Secrets = @($result.DB_PASSWORD, $result.TRACKING_API_TOKEN)
